@@ -1,0 +1,55 @@
+name: Build OpenCADStudio Debian12 ARM64
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04-arm
+
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v4
+
+      - name: Compilar OpenCADStudio en Debian 12 ARM64
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            rust:bookworm \
+            bash -c '
+              apt-get update &&
+              apt-get install -y \
+                git \
+                pkg-config \
+                build-essential \
+                libgl1-mesa-dev \
+                libx11-dev \
+                libxcursor-dev \
+                libxi-dev \
+                libxrandr-dev \
+                libxkbcommon-dev \
+                libwayland-dev \
+                libfontconfig1-dev \
+                libfreetype6-dev &&
+              /usr/local/cargo/bin/cargo build --locked --release --bin OpenCADStudio
+            '
+
+      - name: Verificar GLIBC requerida
+        run: |
+          strings target/release/OpenCADStudio \
+            | grep -o 'GLIBC_[0-9.]*' \
+            | sort -V \
+            | tail -10
+
+      - name: Preparar ejecutable
+        run: |
+          mkdir -p ARM64
+          cp target/release/OpenCADStudio ARM64/OpenCADStudio-debian12-arm64
+          chmod +x ARM64/OpenCADStudio-debian12-arm64
+
+      - name: Guardar ejecutable
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenCADStudio-debian12-arm64-glibc236
+          path: ARM64/OpenCADStudio-debian12-arm64
